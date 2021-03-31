@@ -1,0 +1,62 @@
+<!doctype html><html lang=zh-CN><meta charset=utf-8><title>Using V8’s sample-based profiler · V8</title><meta content="width=device-width,initial-scale=1" name=viewport><meta content="dark light" name=color-scheme><link href=/_css/main.css rel=stylesheet><link href=/.webmanifest rel=manifest><meta content=#4285F4 name=theme-color><link href=/blog.atom rel=alternate title="V8 Atom feed" type=application/atom+xml><link href=/features.atom rel=alternate title="V8 JS/Wasm features Atom feed" type=application/atom+xml><script>document.documentElement.className+=' js'</script><meta content="This document explains how to use V8’s sample-based profiler." name=description><header id=header><h1><a href=/ >V8</a></h1><a href=#navigation-toggle id=nav-toggle>显示导肮</a><nav><ul><li><a href=/ >主页</a><li><a href=/blog/ >博客</a><li class=active><a href=/docs/ >文档</a><li><a href=/features title="JavaScript 和 WebAssembly 的新特性">JS/Wasm 新特性</a><li><a href=/grant>Research</a></ul></nav></header><main id=main><h1>Using V8’s sample-based profiler</h1><p>V8 has built-in sample-based profiling. Profiling is turned off by default, but can be enabled via the <code>--prof</code> command-line option. The sampler records stacks of both JavaScript and C/C++ code.<h2 id=build>Build <a href=#build class=bookmark>#</a></h2><p>Build the <code>d8</code> shell following the instructions at <a href=/docs/build-gn>Building with GN</a>.<h2 id=command-line>Command line <a href=#command-line class=bookmark>#</a></h2><p>To start profiling, use the <code>--prof</code> option. When profiling, V8 generates a <code>v8.log</code> file which contains profiling data.<p>Windows:<pre class=language-bash><code class=language-bash>build<span class="token punctuation">\</span>Release<span class="token punctuation">\</span>d8 --prof script.js</code></pre><p>Other platforms (replace <code>ia32</code> with <code>x64</code> if you want to profile the <code>x64</code> build):<pre class=language-bash><code class=language-bash>out/ia32.release/d8 --prof script.js</code></pre><h2 id=process-the-generated-output>Process the generated output <a href=#process-the-generated-output class=bookmark>#</a></h2><p>Log file processing is done using JS scripts running by the d8 shell. For this to work, a <code>d8</code> binary (or symlink, or <code>d8.exe</code> on Windows) must be in the root of your V8 checkout, or in the path specified by the environment variable <code>D8_PATH</code>. Note: this binary is just used to process the log, but not for the actual profiling, so it doesn’t matter which version etc. it is.<p><strong>Make sure <code>d8</code> used for analysis was not built with <code>is_component_build</code>!</strong><p>Windows:<pre class=language-bash><code class=language-bash>tools<span class="token punctuation">\</span>windows-tick-processor.bat v8.log</code></pre><p>Linux:<pre class=language-bash><code class=language-bash>tools/linux-tick-processor v8.log</code></pre><p>macOS:<pre class=language-bash><code class=language-bash>tools/mac-tick-processor v8.log</code></pre><h2 id=web-ui-for---prof>Web UI for <code>--prof</code> <a href=#web-ui-for---prof class=bookmark>#</a></h2><p>Preprocess the log with <code>--preprocess</code> (to resolve C++ symbols, etc).<pre class=language-bash><code class=language-bash><span class="token variable">$V8_PATH</span>/tools/linux-tick-processor --preprocess <span class="token operator">></span> v8.json</code></pre><p>Open <a href=https://v8.dev/tools/head/profview><code>tools/profview/index.html</code></a> in your browser and select the <code>v8.json</code> file there.<h2 id=example-output>Example output <a href=#example-output class=bookmark>#</a></h2><pre><code>Statistical profiling result from benchmarks\v8.log, (4192 ticks, 0 unaccounted, 0 excluded).
+
+ [Shared libraries]:
+   ticks  total  nonlib   name
+      9    0.2%    0.0%  C:\WINDOWS\system32\ntdll.dll
+      2    0.0%    0.0%  C:\WINDOWS\system32\kernel32.dll
+
+ [JavaScript]:
+   ticks  total  nonlib   name
+    741   17.7%   17.7%  LazyCompile: am3 crypto.js:108
+    113    2.7%    2.7%  LazyCompile: Scheduler.schedule richards.js:188
+    103    2.5%    2.5%  LazyCompile: rewrite_nboyer earley-boyer.js:3604
+    103    2.5%    2.5%  LazyCompile: TaskControlBlock.run richards.js:324
+     96    2.3%    2.3%  Builtin: JSConstructCall
+    ...
+
+ [C++]:
+   ticks  total  nonlib   name
+     94    2.2%    2.2%  v8::internal::ScavengeVisitor::VisitPointers
+     33    0.8%    0.8%  v8::internal::SweepSpace
+     32    0.8%    0.8%  v8::internal::Heap::MigrateObject
+     30    0.7%    0.7%  v8::internal::Heap::AllocateArgumentsObject
+    ...
+
+
+ [GC]:
+   ticks  total  nonlib   name
+    458   10.9%
+
+ [Bottom up (heavy) profile]:
+  Note: percentage shows a share of a particular caller in the total
+  amount of its parent calls.
+  Callers occupying less than 2.0% are not shown.
+
+   ticks parent  name
+    741   17.7%  LazyCompile: am3 crypto.js:108
+    449   60.6%    LazyCompile: montReduce crypto.js:583
+    393   87.5%      LazyCompile: montSqrTo crypto.js:603
+    212   53.9%        LazyCompile: bnpExp crypto.js:621
+    212  100.0%          LazyCompile: bnModPowInt crypto.js:634
+    212  100.0%            LazyCompile: RSADoPublic crypto.js:1521
+    181   46.1%        LazyCompile: bnModPow crypto.js:1098
+    181  100.0%          LazyCompile: RSADoPrivate crypto.js:1628
+    ...
+</code></pre><h2 id=profiling-web-applications>Profiling web applications <a href=#profiling-web-applications class=bookmark>#</a></h2><p>Today’s highly optimized virtual machines can run web apps at blazing speed. But one shouldn’t rely only on them to achieve great performance: a carefully optimized algorithm or a less expensive function can often reach many-fold speed improvements on all browsers. <a href=https://developers.google.com/web/tools/chrome-devtools/ >Chrome DevTools</a>’ <a href=https://developers.google.com/web/tools/chrome-devtools/evaluate-performance/reference>CPU Profiler</a> helps you analyze your code’s bottlenecks. But sometimes, you need to go deeper and more granular: this is where V8’s internal profiler comes in handy.<p>Let’s use that profiler to examine the <a href=https://web.archive.org/web/20130313064141/http://ie.microsoft.com/testdrive/performance/mandelbrotexplorer/ >Mandelbrot explorer demo</a> that Microsoft <a href=https://blogs.msdn.microsoft.com/ie/2012/11/13/ie10-fast-fluid-perfect-for-touch-and-available-now-for-windows-7/ >released</a> together with IE10. After the demo release, V8 has fixed a bug that slowed down the computation unnecessarily (hence the poor performance of Chrome in the demo’s blog post) and further optimized the engine, implementing a faster <code>exp()</code> approximation than what the standard system libraries provide. Following these changes, <strong>the demo ran 8× faster than previously measured</strong> in Chrome.<p>But what if you want the code to run faster on all browsers? You should first <strong>understand what keeps your CPU busy</strong>. Run Chrome (Windows and Linux <a href=https://tools.google.com/dlpage/chromesxs>Canary</a>) with the following command line switches, which causes it to output profiler tick information (in the <code>v8.log</code> file) for the URL you specify, which in our case was a local version of the Mandelbrot demo without web workers:<pre class=language-bash><code class=language-bash>./chrome --js-flags<span class="token operator">=</span><span class="token string">'--prof'</span> --no-sandbox <span class="token string">'http://localhost:8080/'</span></code></pre><p>When preparing the test case, make sure it begins its work immediately upon load, and close Chrome when the computation is done (hit Alt+F4), so that you only have the ticks you care about in the log file. Also note that web workers aren’t yet profiled correctly with this technique.<p>Then, process the <code>v8.log</code> file with the <code>tick-processor</code> script that ships with V8 (or the new practical web version):<pre class=language-bash><code class=language-bash>v8/tools/linux-tick-processor v8.log</code></pre><p>Here’s an interesting snippet of the processed output that should catch your attention:<pre><code>Statistical profiling result from null, (14306 ticks, 0 unaccounted, 0 excluded).
+ [Shared libraries]:
+   ticks  total  nonlib   name
+   6326   44.2%    0.0%  /lib/x86_64-linux-gnu/libm-2.15.so
+   3258   22.8%    0.0%  /.../chrome/src/out/Release/lib/libv8.so
+   1411    9.9%    0.0%  /lib/x86_64-linux-gnu/libpthread-2.15.so
+     27    0.2%    0.0%  /.../chrome/src/out/Release/lib/libwebkit.so
+</code></pre><p>The top section shows that V8 is spending more time inside an OS-specific system library than in its own code. Let’s look at what’s responsible for it by examining the “bottom up” output section, where you can read indented lines as “was called by” (and lines starting with a <code>*</code> mean that the function has been optimized by TurboFan):<pre><code>[Bottom up (heavy) profile]:
+  Note: percentage shows a share of a particular caller in the total
+  amount of its parent calls.
+  Callers occupying less than 2.0% are not shown.
+
+   ticks parent  name
+   6326   44.2%  /lib/x86_64-linux-gnu/libm-2.15.so
+   6325  100.0%    LazyCompile: *exp native math.js:91
+   6314   99.8%      LazyCompile: *calculateMandelbrot http://localhost:8080/Demo.js:215
+</code></pre><p>More than <strong>44% of the total time is spent executing the <code>exp()</code> function inside a system library</strong>! Adding some overhead for calling system libraries, that means about two thirds of the overall time are spent evaluating <code>Math.exp()</code>.<p>If you look at the JavaScript code, you’ll see that <code>exp()</code> is used solely to produce a smooth grayscale palette. There are countless ways to produce a smooth grayscale palette, but let’s suppose you really really like exponential gradients. Here is where algorithmic optimization comes into play.<p>You’ll notice that <code>exp()</code> is called with an argument in the range <code>-4 &lt; x &lt; 0</code>, so we can safely replace it with its <a href=https://en.wikipedia.org/wiki/Taylor_series>Taylor approximation</a> for that range, which delivers the same smooth gradient with only a multiplication and a couple of divisions:<pre><code>exp(x) ≈ 1 / ( 1 - x + x * x / 2) for -4 &lt; x &lt; 0
+</code></pre><p>Tweaking the algorithm this way boosts the performance by an extra 30% compared to latest Canary and 5× to the system library based <code>Math.exp()</code> on Chrome Canary.<figure><img alt="" height=355 loading=lazy src=/_img/docs/profile/mandelbrot.png width=592></figure><p>This example shows how V8’s internal profiler can help you go deeper into understanding your code bottlenecks, and that a smarter algorithm can push performance even further.<p>To find out more about how benchmark that represent today’s complex and demanding web applications, read <a href=/blog/real-world-performance>How V8 measures real-world performance</a>.</main><footer id=footer><div><nav><a href=https://v8.dev/docs/profile>原文</a> · <a href=/logo/ >商标</a> · <a href=/terms/ >条款</a> · <a href=https://policies.google.com/privacy/ >隐私</a> · <a href=https://twitter.com/v8js rel="me nofollow">Twitter</a> · <a href=https://github.com/justjavac/v8.js.cn/tree/master/./src/docs/profile.md rel=nofollow>在 GitHub 编辑此页面</a></nav><dark-mode-toggle dark="Light Theme" light="Dark Theme" permanent></dark-mode-toggle></div><p><small>如无特殊说明，此 V8 项目中使用到的所有示例代码均基于 <a href=https://chromium.googlesource.com/v8/v8.git/+/master/LICENSE>V8's BSD-style license</a> 发布。页面中的文字内容采用 <a href=https://creativecommons.org/licenses/by/3.0/ >the Creative Commons Attribution 3.0 License</a> 进行许可。更详细的信息可以在 <a href=/terms#site-policies>站点策略</a> 中找到。</small></footer><script src=/_js/dark-mode-toggle.mjs type=module></script><script src=/_js/main.mjs type=module></script><script src=/_js/legacy.js nomodule></script>
